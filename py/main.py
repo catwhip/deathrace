@@ -1,4 +1,4 @@
-import pygame, math
+import pygame, math, os, random
 
 WINDOW_SIZE = (512, 512)
 SURFACE_SIZE = (128, 128)
@@ -8,16 +8,18 @@ clock = pygame.time.Clock()
 class Car:
 	# this code stolen from https://rmgi.blog/pygame-2d-car-tutorial.html
 
-	playerPos = pygame.math.Vector2(32, 32)
+	pos = pygame.math.Vector2(32, 32)
 	velocity = pygame.math.Vector2(0, 0)
+	speed = 50
 	angle = 0
-	length = 4
+	length = 6
 	steering = 0
 
 	def __init__(self):
 		# load image, rotated 270 to face right direction
-		self.image = pygame.transform.rotate(pygame.transform.scale(pygame.image.load("./assets/car.png"), (6, 8)), 270)
-	
+		self.image = pygame.transform.rotate(pygame.transform.scale(pygame.image.load("./assets/car.png"), (9, 12)), 270) # the actual sprite is 6 x 8
+		self.rect = self.image.get_rect(topleft = self.pos)
+
 	def update(self):
 		dt = clock.get_time() / 1000
 
@@ -28,16 +30,17 @@ class Car:
 		else:
 			angularVelocity = 0
 		
-		self.playerPos += self.velocity.rotate(-self.angle) * dt
+		self.pos += self.velocity.rotate(-self.angle) * dt
 		self.angle += math.degrees(angularVelocity) * dt
+		self.rect = self.image.get_rect(topleft = self.pos)
 
 		# input
 		keys = pygame.key.get_pressed()
 		
 		if keys[pygame.K_z]:
-			self.velocity.x = 50
+			self.velocity.x = self.speed
 		elif keys[pygame.K_x]:
-			self.velocity.x = -30
+			self.velocity.x = -self.speed / 2
 		else:
 			self.velocity.x = 0
 
@@ -50,7 +53,44 @@ class Car:
 
 	def draw(self, surface):
 		# draw rotated sprite
-		surface.blit(pygame.transform.rotate(self.image, self.angle), self.playerPos)
+		surface.blit(pygame.transform.rotate(self.image, self.angle), self.pos)
+
+class Enemy:
+	pos = pygame.math.Vector2(96, 96)
+	frames = 0
+	dead = False
+
+	def __init__(self):
+		# load image, rotated 270 to face right direction
+		self.image = pygame.transform.scale(pygame.image.load("./assets/guy.png"), (5, 8))
+		self.rect = self.image.get_rect(topleft = self.pos)
+
+		self.angle = random.randint(0, 360)
+	
+	def update(self):
+		if not self.dead:
+			# timer based stuff
+			if self.frames % 4 == 0:
+				# animation
+				self.image = pygame.transform.flip(self.image, True, False)
+			if self.frames % (60 * 3) == 0:
+				# changing angles after 3 seconds
+				self.angle = random.randint(0, 360)
+			
+			self.pos += pygame.math.Vector2(0.2, 0).rotate(-self.angle)
+			self.rect = self.image.get_rect(topleft = self.pos)
+
+			# more changing angles stuff in case guy hits edge
+			if self.pos.y <= 0 or self.pos.y + self.rect.h >= SURFACE_SIZE[1]:
+				self.angle = random.randint(0, 360)
+			
+			if self.pos.x <= 0 or self.pos.x + self.rect.w >= SURFACE_SIZE[0]:
+				self.angle = random.randint(0, 360)
+
+		self.frames += 1
+
+	def draw(self, surface):
+		surface.blit(self.image, self.pos)
 
 class Game:
 	surface = pygame.surface.Surface(SURFACE_SIZE)
@@ -60,8 +100,14 @@ class Game:
 	pygame.display.set_caption("death race 76")
 
 	def __init__(self):
+		pygame.mixer.pre_init(44100, 16, 2, 4096)
 		pygame.init()
+
 		self.car = Car()
+		self.enemy = Enemy()
+
+		pygame.mixer.music.load("./assets/music/" + random.choice(os.listdir("./assets/music/")))
+		pygame.mixer.music.play()
 	
 	def __del__(self):
 		pygame.quit()
@@ -76,12 +122,26 @@ class Game:
 			if event.type == pygame.KEYDOWN:
 				if event.key == pygame.K_ESCAPE:
 					self.active = False
+				
+				if event.key == pygame.K_m:
+					pygame.mixer.music.set_volume(0)
 		
 		self.car.update()
+		self.enemy.update()
+
+		if pygame.Rect.colliderect(self.car.rect, self.enemy.rect):
+			if not self.enemy.dead:
+				self.enemy.dead = True
+			else:
+				self.car.speed = 15
+		else:
+			self.car.speed = 50
+				
 	
 	def draw(self):
 		self.surface.fill((0, 0, 0))
 		self.car.draw(self.surface)
+		self.enemy.draw(self.surface)
 
 		self.window.blit(pygame.transform.scale(self.surface, WINDOW_SIZE), (0, 0))
 		pygame.display.flip()
