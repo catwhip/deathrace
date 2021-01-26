@@ -1,7 +1,7 @@
 import pygame, math, os, random
 
-WINDOW_SIZE = (512, 512)
-SURFACE_SIZE = (128, 128)
+WINDOW_SIZE = (960, 540)
+SURFACE_SIZE = (240, 135)
 
 clock = pygame.time.Clock()
 
@@ -55,14 +55,15 @@ class Car:
 		# draw rotated sprite
 		surface.blit(pygame.transform.rotate(self.image, self.angle), self.pos)
 
-class Enemy:
-	pos = pygame.math.Vector2(96, 96)
+class Enemy():
 	frames = 0
 	dead = False
 
-	def __init__(self):
+	def __init__(self, pos = (96, 96)):
 		# load image, rotated 270 to face right direction
 		self.image = pygame.transform.scale(pygame.image.load("./assets/guy.png"), (5, 8))
+		self.blood = pygame.image.load("./assets/blood.png")
+		self.pos = pygame.math.Vector2(pos)
 		self.rect = self.image.get_rect(topleft = self.pos)
 
 		self.angle = random.randint(0, 360)
@@ -90,12 +91,16 @@ class Enemy:
 		self.frames += 1
 
 	def draw(self, surface):
+		if self.dead:
+			surface.blit(self.blood, (self.pos.x - 3, self.pos.y - 2))
 		surface.blit(self.image, self.pos)
 
 class Game:
 	surface = pygame.surface.Surface(SURFACE_SIZE)
 	window  = pygame.display.set_mode(WINDOW_SIZE)
 	active  = True
+	counter = 0
+	score   = 0
 
 	pygame.display.set_caption("death race 76")
 
@@ -104,13 +109,30 @@ class Game:
 		pygame.init()
 
 		self.car = Car()
-		self.enemy = Enemy()
+		#self.enemy = Enemy()
+		self.enemies = [Enemy(), Enemy((64, 64))]
 
 		pygame.mixer.music.load("./assets/music/" + random.choice(os.listdir("./assets/music/")))
 		pygame.mixer.music.play()
 	
 	def __del__(self):
 		pygame.quit()
+	
+	def add_enemy(self):
+		while True:
+			posx = random.randint(0, SURFACE_SIZE[0] - 5)
+			posy = random.randint(0, SURFACE_SIZE[1] - 7)
+
+			if pygame.Rect.colliderect(self.car.rect, pygame.Rect(posx, posy, 5, 7)):
+				continue
+			
+			for enemy in self.enemies:
+				if pygame.Rect.colliderect(enemy.rect, pygame.Rect(posx, posy, 5, 7)):
+					continue
+
+			break
+
+		self.enemies.append(Enemy((posx, posy)))
 
 	def update(self):
 		eventList = pygame.event.get()
@@ -126,22 +148,39 @@ class Game:
 				if event.key == pygame.K_m:
 					pygame.mixer.music.set_volume(0)
 		
-		self.car.update()
-		self.enemy.update()
+		if self.counter < (60 * 60):
+			self.car.update()
+			for enemy in self.enemies:
+				enemy.update()
 
-		if pygame.Rect.colliderect(self.car.rect, self.enemy.rect):
-			if not self.enemy.dead:
-				self.enemy.dead = True
-			else:
-				self.car.speed = 15
+			for enemy in self.enemies:
+				if pygame.Rect.colliderect(self.car.rect, enemy.rect):
+					if not enemy.dead:
+						enemy.dead = True
+
+						if self.car.velocity.x >= 0:
+							self.score += 1
+						else:
+							self.score += 2
+						
+						print("score: " + str(self.score))
+						self.add_enemy()
+					else:
+						self.car.speed = 15
+					break
+				else:
+					self.car.speed = 50
 		else:
-			self.car.speed = 50
+			print("game over! you got " + str(self.score) + " points!")
+
+		self.counter += 1
 				
 	
 	def draw(self):
 		self.surface.fill((0, 0, 0))
+		for enemy in self.enemies:
+			enemy.draw(self.surface)
 		self.car.draw(self.surface)
-		self.enemy.draw(self.surface)
 
 		self.window.blit(pygame.transform.scale(self.surface, WINDOW_SIZE), (0, 0))
 		pygame.display.flip()
