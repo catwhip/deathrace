@@ -24,7 +24,7 @@ class Car:
 		self.image = pygame.transform.rotate(pygame.transform.scale(pygame.image.load("./assets/car.png"), (9, 12)), 270) # the actual sprite is 6 x 8
 		self.rect = self.image.get_rect(topleft = self.pos)
 
-		self.hum = pygame.mixer.Sound.play(pygame.mixer.Sound("./assets/sfx/car.wav"), loops = -1)
+		#self.hum = pygame.mixer.Sound.play(pygame.mixer.Sound("./assets/sfx/car.wav"), loops = -1)
 
 	def update(self):
 		dt = clock.get_time() / 1000
@@ -65,10 +65,10 @@ class Car:
 			self.pos.x = (4 if self.pos.x <= 4 else GAME_SIZE[0] - self.rect.w + 3)
 
 		# volume
-		if self.velocity.x != 0:
+		""" if self.velocity.x != 0:
 			self.hum.set_volume(1.0)
 		else:
-			self.hum.set_volume(0)
+			self.hum.set_volume(0) """
 
 	def draw(self, surface):
 		# draw rotated sprite
@@ -118,7 +118,7 @@ class Enemy():
 		surface.blit(self.image, self.pos)
 
 class Arcade:
-	counter = (60 * 60)
+	counter = (60 * 63)
 	score   = 0
 
 	def __init__(self):
@@ -129,7 +129,7 @@ class Arcade:
 		self.font = pygame.font.Font("./assets/m5x7.ttf", 24)
 
 		self.scoreText = self.font.render(str(self.score), True, (255, 255, 255))
-		self.timerText = self.font.render(str(self.counter), True, (255, 255, 255))
+		self.timerText = self.font.render(str(int(self.counter / 60)), True, (255, 255, 255))
 	
 	def add_enemy(self):
 		while True:
@@ -147,7 +147,7 @@ class Arcade:
 		self.enemies.append(Enemy((posx, posy)))
 
 	def update(self, eventList):
-		if self.counter >= 0:
+		if self.counter >= 0 and self.counter <= (60 * 60):
 			self.car.update()
 			for enemy in self.enemies:
 				enemy.update()
@@ -168,7 +168,8 @@ class Arcade:
 							
 							self.add_enemy()
 			else:
-				self.car.speed = 50
+				if not self.counter > (60 * 60):
+					self.car.speed = 50
 			
 			self.scoreText = self.font.render(str(self.score), True, (255, 255, 255))
 			self.timerText = self.font.render(str(int(self.counter / 60)), True, (255, 255, 255))
@@ -193,9 +194,12 @@ class Arcade:
 		surface.blit(self.scoreText, ((SURFACE_SIZE[0] - 8 - self.scoreText.get_rect().w, ((SURFACE_SIZE[1] - (GAME_SIZE[1] + 4)) / 2) + (GAME_SIZE[1] + 4) - (self.timerText.get_rect().h / 2))))
 
 class Menu:
+	counter = 0
+
 	def __init__(self):
-		self.font = pygame.font.Font("./assets/m5x7.ttf", 16)
+		self.font = pygame.font.Font("./assets/m5x7.ttf", 12)
 		self.logo = pygame.image.load("./assets/logo.png")
+		#self.bg   = pygame.image.load("./assets/bg.png")
 
 		if "highScore" not in tmpSave:
 			tmpSave["highScore"] = 0
@@ -206,12 +210,20 @@ class Menu:
 				return "arcade"
 		
 		#self.testString = self.font.render(f"HIGH SCORE: {tmpSave['highScore']}", True, (255, 255, 255))
-		self.enterString = self.font.render("press any key to start", True, (255, 255, 255))
+		if int(self.counter / 30) % 2 == 0:
+			self.enterStringTxt = self.font.render("press any key to start", True, (255, 255, 255))
+			self.enterString = pygame.Surface((self.enterStringTxt.get_rect().w + 8, self.enterStringTxt.get_rect().h + 8))
+			self.enterString.blit(self.enterStringTxt, (4, 4))
+		else:
+			self.enterString = self.font.render("", True, (255, 255, 255))
+
+		self.counter += 1
 	
 	def draw(self, surface):
-		#surface.blit(self.testString, ((SURFACE_SIZE[0] / 2) - (self.testString.get_rect().w / 2), 24))
-		surface.blit(self.logo, ((SURFACE_SIZE[0] / 2) - (self.logo.get_rect().w / 2), (SURFACE_SIZE[1] / 3) - (self.logo.get_rect().h / 2)))
-		surface.blit(self.enterString, ((SURFACE_SIZE[0] / 2) - (self.enterString.get_rect().w / 2), (SURFACE_SIZE[1] / 3) + (SURFACE_SIZE[1] / 3) - (self.enterString.get_rect().h / 2)))
+		#surface.blit(self.bg, (0, 0))
+
+		surface.blit(self.logo, ((SURFACE_SIZE[0] / 2) - (self.logo.get_rect().w / 2), (SURFACE_SIZE[1] / 2) - (self.logo.get_rect().h / 2)))
+		surface.blit(self.enterString, ((SURFACE_SIZE[0] / 2) - (self.enterString.get_rect().w / 2), (SURFACE_SIZE[1] / 2) - (self.enterString.get_rect().h / 2)))
 
 class Game:
 	surface = pygame.surface.Surface(SURFACE_SIZE)
@@ -256,7 +268,9 @@ class Game:
 		self.window.blit(pygame.transform.scale(self.surface, WINDOW_SIZE), (0, 0))
 		pygame.display.flip()
 
-		time.sleep(1)
+		pygame.mixer.Sound.play(pygame.mixer.Sound("./assets/sfx/splash.wav"))
+
+		time.sleep(3)
 	
 	def update(self):
 		eventList = pygame.event.get()
